@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Error — BudgetTracker</title>
+  <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#060a14;font-family:'DM Mono',monospace;">
+  <div style="text-align:center;padding:40px;">
+    <div style="font-size:64px;margin-bottom:20px;">⚠️</div>
+    <h1 style="color:#f87171;font-size:24px;margin-bottom:12px;">Something went wrong</h1>
+    <p style="color:#475569;font-size:14px;margin-bottom:24px;" th:text="${message} ?: 'An unexpected error occurred.'"></p>
+    <a href="/dashboard" style="background:linear-gradient(135deg,#0ea5e9,#6366f1);color:#fff;padding:12px 24px;border-radius:10px;text-decoration:none;font-size:13px;">← Back to Dashboard</a>
+    &nbsp;
+    <a href="/login" style="background:#1e293b;color:#94a3b8;padding:12px 24px;border-radius:10px;text-decoration:none;font-size:13px;border:1px solid #1e2a3a;">Go to Login</a>
+  </div>
+</div>
+</body>
+</html>

@@ -48,7 +48,7 @@
     <div class="stat-card">
       <div class="stat-label">BALANCE</div>
       <div class="stat-value" th:style="${balance>=0}?'color:#4ade80':'color:#f87171'">
-        <span th:text="${balance>=0}?'+':'-'"></span>₹<span th:text="${#numbers.formatDecimal(#math.abs(balance),1,'COMMA',2,'POINT')}">0</span>
+        <span th:text="${balance>=0}?'+':'-'"></span>₹<span th:text="${balance >= 0 ? #numbers.formatDecimal(balance,1,'COMMA',2,'POINT') : #numbers.formatDecimal(-balance,1,'COMMA',2,'POINT')}">0</span>
       </div>
     </div>
     <div class="stat-card">
