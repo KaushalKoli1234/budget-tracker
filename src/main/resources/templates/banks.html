@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Bank Accounts — BudgetTracker</title>
+  <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<nav class="navbar">
+  <a class="navbar-brand" href="/dashboard">💰 Budget<span>Tracker</span></a>
+  <div class="navbar-nav">
+    <a class="nav-link" href="/dashboard">🏠 <span>Home</span></a>
+    <a class="nav-link" href="/dashboard/add">➕ <span>Add</span></a>
+    <a class="nav-link active" href="/dashboard/banks">🏦 <span>Banks</span></a>
+    <a class="nav-link" href="/dashboard/recurring">🔁 <span>Recurring</span></a>
+    <a class="nav-link" href="/dashboard/history">📋 <span>History</span></a>
+    <a class="nav-link" href="/dashboard/reports">📊 <span>Reports</span></a>
+    <div class="nav-user">
+      <div class="avatar" th:text="${userName?.substring(0,1)?.toUpperCase()}">U</div>
+      <a href="/logout" class="btn btn-danger btn-sm">Logout</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page anim-fade">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1 class="page-title">🏦 Bank Accounts</h1>
+      <p class="page-sub">ADD AND MANAGE YOUR BANK ACCOUNTS MANUALLY</p>
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('add-form').style.display='block';this.style.display='none'">
+      + Add Bank Account
+    </button>
+  </div>
+
+  <!-- Alerts -->
+  <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+  <div th:if="${error}"   class="alert alert-danger"  th:text="${error}"></div>
+
+  <!-- Add bank form (hidden by default) -->
+  <div id="add-form" style="display:none;margin-bottom:24px;">
+    <div class="card" style="border-color:#075985;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div>
+          <h3 style="font-size:16px;font-weight:700;">🏦 Add New Bank Account</h3>
+          <p style="font-size:11px;color:#475569;margin-top:3px;">Enter your bank account details manually</p>
+        </div>
+        <button class="btn btn-ghost btn-sm"
+                onclick="document.getElementById('add-form').style.display='none';document.querySelector('.btn-primary').style.display='inline-flex'">✕ Cancel</button>
+      </div>
+
+      <form method="post" action="/dashboard/banks/add">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">BANK NAME</label>
+            <select class="form-control" name="bankName" required>
+              <option value="">Select bank…</option>
+              <option th:each="b : ${indianBanks}" th:value="${b}" th:text="${b}"></option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">ACCOUNT TYPE</label>
+            <select class="form-control" name="accountType" required>
+              <option th:each="t : ${accountTypes}" th:value="${t}" th:text="${t}"></option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">ACCOUNT HOLDER NAME</label>
+          <input class="form-control" type="text" name="holder" placeholder="As per bank records" required/>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">ACCOUNT NUMBER (9–18 digits)</label>
+            <input class="form-control" type="text" name="accountNo"
+                   placeholder="Enter account number" maxlength="18"
+                   pattern="[0-9]{9,18}" required/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">IFSC CODE</label>
+            <input class="form-control" type="text" name="ifsc"
+                   placeholder="e.g. SBIN0001234" maxlength="11"
+                   style="text-transform:uppercase" required/>
+          </div>
+        </div>
+
+        <div class="form-group" style="max-width:260px;">
+          <label class="form-label">CURRENT BALANCE (₹)</label>
+          <input class="form-control" type="number" name="balance" step="0.01" placeholder="e.g. 50000" required/>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:6px;">
+          <button type="submit" class="btn btn-primary">✓ Add Bank Account</button>
+          <button type="button" class="btn btn-ghost"
+                  onclick="document.getElementById('add-form').style.display='none';document.querySelector('.btn-primary').style.display='inline-flex'">Cancel</button>
+        </div>
+
+        <div style="margin-top:14px;background:#0a0f1e;border:1px solid #1e2a3a;border-radius:8px;padding:10px 14px;font-size:11px;color:#334155;line-height:1.7;">
+          🔒 Your account details are stored securely in-memory on this server session. Account numbers are masked (only last 4 digits shown).
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bank accounts list -->
+  <div th:if="${banks.isEmpty()}" class="card empty-state">
+    <div class="empty-icon">🏦</div>
+    <h3 class="empty-title">No Bank Accounts Added</h3>
+    <p class="empty-sub">Add your bank accounts to tag transactions<br/>with the correct bank and track per-account spending.</p>
+    <button class="btn btn-primary"
+            onclick="document.getElementById('add-form').style.display='block';document.querySelector('.btn-primary').style.display='none'">
+      + Add Your First Bank Account
+    </button>
+  </div>
+
+  <div th:if="${!banks.isEmpty()}" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div th:each="b : ${banks}" class="card anim-slide" style="border-color:#0c2a4a;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div style="width:42px;height:42px;border-radius:10px;background:#0c2a4a;border:1px solid #075985;display:flex;align-items:center;justify-content:center;font-size:22px;">🏦</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;" th:text="${b.bankName}"></div>
+            <div style="font-size:10px;color:#475569;margin-top:2px;" th:text="${b.accountType} + ' · ' + ${b.mask}"></div>
+          </div>
+        </div>
+        <form method="post" action="/dashboard/banks/delete"
+              onsubmit="return confirm('Remove this bank account?')">
+          <input type="hidden" name="bankId" th:value="${b.id}"/>
+          <button type="submit" class="btn btn-danger btn-sm">Remove</button>
+        </form>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+        <div style="background:#0a0f1e;border-radius:8px;padding:8px 10px;">
+          <div style="font-size:9px;color:#334155;letter-spacing:1px;margin-bottom:3px;">HOLDER</div>
+          <div style="font-size:12px;color:#94a3b8;" th:text="${b.holder}"></div>
+        </div>
+        <div style="background:#0a0f1e;border-radius:8px;padding:8px 10px;">
+          <div style="font-size:9px;color:#334155;letter-spacing:1px;margin-bottom:3px;">IFSC</div>
+          <div style="font-size:12px;color:#94a3b8;" th:text="${b.ifsc}"></div>
+        </div>
+        <div style="background:#0a0f1e;border-radius:8px;padding:8px 10px;">
+          <div style="font-size:9px;color:#334155;letter-spacing:1px;margin-bottom:3px;">ACCOUNT NO</div>
+          <div style="font-size:12px;color:#94a3b8;" th:text="${b.mask}"></div>
+        </div>
+        <div style="background:#0a0f1e;border-radius:8px;padding:8px 10px;">
+          <div style="font-size:9px;color:#334155;letter-spacing:1px;margin-bottom:3px;">ADDED ON</div>
+          <div style="font-size:12px;color:#94a3b8;" th:text="${b.addedOn}"></div>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#0a0f1e;border-radius:8px;padding:12px;">
+        <div>
+          <div style="font-size:9px;color:#334155;letter-spacing:1px;">BALANCE</div>
+          <div style="font-size:18px;font-weight:700;margin-top:2px;"
+               th:style="${b.balance>=0}?'color:#4ade80':'color:#f87171'">
+            ₹<span th:text="${b.balanceFormatted}"></span>
+          </div>
+        </div>
+        <a th:href="'/dashboard/add?type=EXPENSE'" class="btn btn-ghost btn-sm">+ Log Transaction</a>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

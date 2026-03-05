@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Recurring — BudgetTracker</title>
+  <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<nav class="navbar">
+  <a class="navbar-brand" href="/dashboard">💰 Budget<span>Tracker</span></a>
+  <div class="navbar-nav">
+    <a class="nav-link" href="/dashboard">🏠 <span>Home</span></a>
+    <a class="nav-link" href="/dashboard/add">➕ <span>Add</span></a>
+    <a class="nav-link" href="/dashboard/banks">🏦 <span>Banks</span></a>
+    <a class="nav-link active" href="/dashboard/recurring">🔁 <span>Recurring</span></a>
+    <a class="nav-link" href="/dashboard/history">📋 <span>History</span></a>
+    <a class="nav-link" href="/dashboard/reports">📊 <span>Reports</span></a>
+    <div class="nav-user">
+      <div class="avatar" th:text="${userName?.substring(0,1)?.toUpperCase()}">U</div>
+      <a href="/logout" class="btn btn-danger btn-sm">Logout</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page anim-fade">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
+    <div>
+      <h1 class="page-title">🔁 Recurring Rules</h1>
+      <p class="page-sub">SET ONCE — AUTO-POSTS ON EVERY DUE DATE</p>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <form method="post" action="/dashboard/recurring/post-all">
+        <button type="submit" class="btn btn-purple">▶ Post All Due Now</button>
+      </form>
+      <button class="btn btn-primary"
+              onclick="document.getElementById('add-rule-form').style.display='block';this.style.display='none'">
+        + Add Rule
+      </button>
+    </div>
+  </div>
+
+  <!-- Alert -->
+  <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
+
+  <!-- Add rule form -->
+  <div id="add-rule-form" style="display:none;margin-bottom:24px;">
+    <div class="card" style="border-color:#4c1d95;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <div>
+          <h3 style="font-size:16px;font-weight:700;">🔁 Add Recurring Rule</h3>
+          <p style="font-size:11px;color:#475569;margin-top:3px;">Auto-posts on each due date</p>
+        </div>
+        <button class="btn btn-ghost btn-sm"
+                onclick="document.getElementById('add-rule-form').style.display='none';document.querySelector('.btn-primary').style.display='inline-flex'">✕</button>
+      </div>
+
+      <form method="post" action="/dashboard/recurring/add">
+        <!-- Type toggle -->
+        <div class="type-toggle">
+          <button type="button" class="type-btn income active" id="rbtn-income" onclick="setRType('INCOME')">+ INCOME</button>
+          <button type="button" class="type-btn expense"       id="rbtn-expense" onclick="setRType('EXPENSE')">- EXPENSE</button>
+        </div>
+        <input type="hidden" name="txType" id="rTxType" value="INCOME"/>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">AMOUNT (₹)</label>
+            <input class="form-control" type="number" name="amount" step="0.01" placeholder="e.g. 24500" required/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">FREQUENCY</label>
+            <select class="form-control" name="frequency" required>
+              <option value="DAILY">Daily</option>
+              <option value="WEEKLY">Weekly</option>
+              <option value="MONTHLY" selected>Monthly</option>
+              <option value="YEARLY">Yearly</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">DESCRIPTION</label>
+          <input class="form-control" type="text" name="description" placeholder="e.g. House Rent, Netflix, Salary…" required/>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">CATEGORY</label>
+            <select class="form-control" name="category" id="rCatSelect" required>
+              <option value="">Select…</option>
+              <option th:each="c : ${incCats}" th:value="${c}" th:text="${c}"></option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">START / NEXT DUE DATE</label>
+            <input class="form-control" type="date" name="startDate" th:value="${today}" required/>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;">
+          <button type="submit" class="btn btn-purple">✓ Add Rule</button>
+          <button type="button" class="btn btn-ghost"
+                  onclick="document.getElementById('add-rule-form').style.display='none';document.querySelector('.btn-primary').style.display='inline-flex'">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Rules list -->
+  <div th:if="${rules.isEmpty()}" class="card empty-state">
+    <div class="empty-icon">🔁</div>
+    <h3 class="empty-title">No Recurring Rules</h3>
+    <p class="empty-sub">Set up rules for rent, EMI, subscriptions, salary<br/>— auto-post them in one click.</p>
+    <button class="btn btn-purple"
+            onclick="document.getElementById('add-rule-form').style.display='block'">+ Add First Rule</button>
+  </div>
+
+  <div th:if="${!rules.isEmpty()}">
+    <div class="card" style="padding:0;overflow:hidden;">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>TYPE</th>
+            <th>DESCRIPTION</th>
+            <th>CATEGORY</th>
+            <th>AMOUNT</th>
+            <th>FREQUENCY</th>
+            <th>NEXT DUE</th>
+            <th>STATUS</th>
+            <th>ACTION</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="r : ${rules}">
+            <td style="color:#475569;font-size:11px;" th:text="${r.id}"></td>
+            <td>
+              <span class="badge" th:class="${r.type.name()=='INCOME'}?'badge badge-income':'badge badge-expense'"
+                    th:text="${r.type}"></span>
+            </td>
+            <td style="font-weight:500;" th:text="${r.description}"></td>
+            <td style="color:#fbbf24;font-size:12px;" th:text="${r.category}"></td>
+            <td>
+              <span th:class="${r.type.name()=='INCOME'}?'amount-inc':'amount-exp'">
+                <span th:text="${r.type.name()=='INCOME'}?'+':'-'"></span>₹<span th:text="${r.amountFormatted}"></span>
+              </span>
+            </td>
+            <td style="color:#a78bfa;font-size:12px;" th:text="${r.frequency}"></td>
+            <td>
+              <span th:if="${r.due}" style="color:#a78bfa;font-weight:600;">⚡ <span th:text="${r.nextDue}"></span></span>
+              <span th:if="${!r.due}" style="color:#475569;" th:text="${r.nextDue}"></span>
+            </td>
+            <td>
+              <span th:if="${r.active}"  style="color:#4ade80;font-size:11px;">● Active</span>
+              <span th:if="${!r.active}" style="color:#475569;font-size:11px;">○ Paused</span>
+            </td>
+            <td>
+              <form method="post" action="/dashboard/recurring/delete"
+                    onsubmit="return confirm('Delete this rule?')" style="display:inline;">
+                <input type="hidden" name="ruleId" th:value="${r.id}"/>
+                <button type="submit" class="btn btn-danger btn-sm">🗑</button>
+              </form>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:16px;">
+      <form method="post" action="/dashboard/recurring/post-all">
+        <button type="submit" class="btn btn-purple" style="width:100%;padding:13px;font-size:14px;">
+          ▶ Auto-Post All Due Recurring Transactions
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  const expCats = /*[[${expCats}]]*/ [];
+  const incCats = /*[[${incCats}]]*/ [];
+
+  function setRType(type) {
+    document.getElementById('rTxType').value = type;
+    document.getElementById('rbtn-income').classList.toggle('active',  type==='INCOME');
+    document.getElementById('rbtn-expense').classList.toggle('active', type==='EXPENSE');
+    const sel  = document.getElementById('rCatSelect');
+    const cats = type === 'INCOME' ? incCats : expCats;
+    sel.innerHTML = '<option value="">Select…</option>';
+    cats.forEach(c => { const o = document.createElement('option'); o.value=c; o.textContent=c; sel.appendChild(o); });
+  }
+</script>
+</body>
+</html>

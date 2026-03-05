@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Add Transaction — BudgetTracker</title>
+  <link rel="stylesheet" th:href="@{/css/style.css}"/>
+</head>
+<body>
+<nav class="navbar">
+  <a class="navbar-brand" href="/dashboard">💰 Budget<span>Tracker</span></a>
+  <div class="navbar-nav">
+    <a class="nav-link" href="/dashboard">🏠 <span>Home</span></a>
+    <a class="nav-link active" href="/dashboard/add">➕ <span>Add</span></a>
+    <a class="nav-link" href="/dashboard/banks">🏦 <span>Banks</span></a>
+    <a class="nav-link" href="/dashboard/recurring">🔁 <span>Recurring</span></a>
+    <a class="nav-link" href="/dashboard/history">📋 <span>History</span></a>
+    <a class="nav-link" href="/dashboard/reports">📊 <span>Reports</span></a>
+    <div class="nav-user">
+      <div class="avatar" th:text="${userName?.substring(0,1)?.toUpperCase()}">U</div>
+      <a href="/logout" class="btn btn-danger btn-sm">Logout</a>
+    </div>
+  </div>
+</nav>
+
+<div class="page anim-fade">
+  <div style="margin-bottom:24px;">
+    <h1 class="page-title">➕ Add Transaction</h1>
+    <p class="page-sub">MANUAL OR AUTO-CATEGORIZED ENTRY</p>
+  </div>
+
+  <div style="max-width:600px;">
+    <div class="card">
+
+      <!-- Type toggle -->
+      <div class="type-toggle">
+        <button type="button" id="btn-income"
+                class="type-btn income" th:classappend="${txType == 'INCOME'} ? ' active'"
+                onclick="setType('INCOME')">+ INCOME</button>
+        <button type="button" id="btn-expense"
+                class="type-btn expense" th:classappend="${txType == 'EXPENSE'} ? ' active'"
+                onclick="setType('EXPENSE')">- EXPENSE</button>
+      </div>
+
+      <form method="post" action="/dashboard/add" id="tx-form">
+        <input type="hidden" name="txType" id="txType" th:value="${txType}"/>
+        <input type="hidden" name="entryMode" id="entryMode" value="MANUAL"/>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">AMOUNT (₹)</label>
+            <input class="form-control" type="number" name="amount" step="0.01"
+                   placeholder="0.00" required min="0.01"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">DATE</label>
+            <input class="form-control" type="date" name="date" th:value="${today}" required/>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">DESCRIPTION</label>
+          <input class="form-control" type="text" name="description" id="desc-input"
+                 placeholder="e.g. Swiggy Order, Netflix, Salary…"
+                 oninput="fetchSuggest(this.value)" required/>
+          <!-- Auto-suggest box -->
+          <div id="suggest-box" style="display:none;" class="suggestion-box">
+            <span style="font-size:20px;">🤖</span>
+            <div style="flex:1;">
+              <div class="suggestion-label">AUTO-SUGGESTED</div>
+              <div class="suggestion-val" id="suggest-text"></div>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" onclick="acceptSuggest()">✓ Accept</button>
+          </div>
+          <div id="suggest-accepted" style="display:none;font-size:10px;color:#4ade80;margin-top:5px;">✓ Category auto-applied</div>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">CATEGORY</label>
+            <select class="form-control" name="category" id="category-select" required>
+              <option value="">Select category…</option>
+              <optgroup label="Common" id="cat-group">
+                <option th:each="c : ${expCats}" th:value="${c}" th:text="${c}"></option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">BANK ACCOUNT (OPTIONAL)</label>
+            <select class="form-control" name="bankId">
+              <option value="">None (Manual)</option>
+              <option th:each="b : ${banks}" th:value="${b.id}"
+                      th:text="'🏦 ' + ${b.bankName} + ' ' + ${b.mask}"></option>
+            </select>
+            <div th:if="${banks.isEmpty()}" style="font-size:10px;color:#334155;margin-top:5px;">
+              <a href="/dashboard/banks" style="color:#38bdf8;">+ Add a bank account first</a>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;">
+          + Save Transaction
+        </button>
+      </form>
+    </div>
+
+    <!-- Tips card -->
+    <div class="card" style="margin-top:16px;border-color:#0c2a4a;">
+      <div class="section-title">💡 TIPS</div>
+      <div style="font-size:12px;color:#475569;line-height:2;">
+        🤖 Type a description like <strong style="color:#e2e8f0;">Swiggy</strong> or <strong style="color:#e2e8f0;">Netflix</strong> — category auto-suggests<br/>
+        🏦 Select a bank account to tag this transaction to your bank<br/>
+        🔁 For repeating transactions, use <a href="/dashboard/recurring" style="color:#a78bfa;">Recurring Rules</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const expCats = /*[[${expCats}]]*/ [];
+  const incCats = /*[[${incCats}]]*/ [];
+  let suggestedCat = null, suggestedType = null;
+
+  function setType(type) {
+    document.getElementById('txType').value = type;
+    document.getElementById('btn-income').classList.toggle('active',  type === 'INCOME');
+    document.getElementById('btn-expense').classList.toggle('active', type === 'EXPENSE');
+    updateCategoryOptions(type);
+  }
+
+  function updateCategoryOptions(type) {
+    const sel  = document.getElementById('category-select');
+    const cats = type === 'INCOME' ? incCats : expCats;
+    const cur  = sel.value;
+    sel.innerHTML = '<option value="">Select category…</option>';
+    cats.forEach(c => {
+      const o = document.createElement('option');
+      o.value = c; o.textContent = c;
+      if (c === cur) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  let debounce;
+  function fetchSuggest(val) {
+    clearTimeout(debounce);
+    document.getElementById('suggest-box').style.display = 'none';
+    document.getElementById('suggest-accepted').style.display = 'none';
+    if (!val || val.length < 3) return;
+    debounce = setTimeout(() => {
+      fetch('/dashboard/suggest?desc=' + encodeURIComponent(val))
+        .then(r => r.json())
+        .then(data => {
+          if (data.category) {
+            suggestedCat  = data.category;
+            suggestedType = data.type;
+            document.getElementById('suggest-text').textContent =
+              'Category: ' + data.category + '  ·  Type: ' + data.type;
+            document.getElementById('suggest-box').style.display = 'flex';
+          }
+        });
+    }, 400);
+  }
+
+  function acceptSuggest() {
+    if (!suggestedCat) return;
+    setType(suggestedType);
+    // select the category
+    const sel = document.getElementById('category-select');
+    for (let o of sel.options) { if (o.value === suggestedCat) { o.selected = true; break; } }
+    document.getElementById('suggest-box').style.display     = 'none';
+    document.getElementById('suggest-accepted').style.display = 'block';
+    document.getElementById('entryMode').value = 'AUTO';
+  }
+
+  // Init category options on page load
+  setType(document.getElementById('txType').value || 'EXPENSE');
+</script>
+</body>
+</html>
