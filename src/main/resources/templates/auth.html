@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>BudgetTracker — Login / Sign Up</title>
   <link rel="stylesheet" th:href="@{/css/style.css}"/>
+  <style>
+    .otp-row { display:flex; gap:8px; }
+    .otp-input { letter-spacing:6px; font-size:18px; text-align:center; font-weight:700; }
+    .verified-badge { display:inline-flex; align-items:center; gap:6px; background:#052e16; color:#4ade80; border:1px solid #166534; border-radius:8px; padding:6px 12px; font-size:11px; font-weight:600; }
+    .otp-demo-box { background:#0f1e30; border:1px dashed #38bdf8; border-radius:8px; padding:10px 14px; margin-top:8px; text-align:center; animation:fadeUp .3s ease; }
+    .otp-demo-code { font-size:28px; font-weight:800; color:#38bdf8; letter-spacing:8px; font-family:'Syne',sans-serif; }
+    .otp-demo-label { font-size:9px; color:#475569; letter-spacing:2px; margin-bottom:4px; }
+    .resend-btn { background:none; border:none; color:#38bdf8; font-size:11px; cursor:pointer; text-decoration:underline; font-family:'DM Mono',monospace; }
+    .timer { font-size:11px; color:#475569; }
+    .send-btn { white-space:nowrap; }
+  </style>
 </head>
 <body>
 <div class="auth-wrapper">
@@ -66,14 +77,49 @@
             <label class="form-label">EMAIL ADDRESS</label>
             <input class="form-control" type="email" name="email" placeholder="you@example.com" required/>
           </div>
+
+          <!-- ── Mobile + OTP ── -->
           <div class="form-group">
             <label class="form-label">MOBILE NUMBER</label>
-            <div class="phone-group">
+            <div class="otp-row">
               <span class="phone-prefix">🇮🇳 +91</span>
-              <input class="form-control" type="tel" name="phone" placeholder="10-digit mobile"
-                     maxlength="10" pattern="[0-9]{10}" required style="flex:1;"/>
+              <input class="form-control" type="tel" name="phone" id="phone-input"
+                     placeholder="10-digit mobile" maxlength="10" pattern="[0-9]{10}"
+                     required style="flex:1;" oninput="resetOtp()"/>
+              <button type="button" class="btn btn-ghost send-btn btn-sm" id="send-otp-btn"
+                      onclick="sendOtp()">📱 Send OTP</button>
             </div>
           </div>
+
+          <!-- OTP demo box (shows the OTP in demo mode) -->
+          <div id="otp-demo-box" style="display:none;" class="otp-demo-box">
+            <div class="otp-demo-label">📲 DEMO OTP (no SMS needed)</div>
+            <div class="otp-demo-code" id="otp-demo-code">------</div>
+            <div style="font-size:10px;color:#475569;margin-top:4px;">Enter this code below to verify</div>
+          </div>
+
+          <!-- OTP input row -->
+          <div id="otp-section" style="display:none;" class="form-group">
+            <label class="form-label">ENTER OTP</label>
+            <div class="otp-row" style="align-items:center;">
+              <input class="form-control otp-input" type="text" id="otp-input"
+                     placeholder="• • • • • •" maxlength="6" style="flex:1;"/>
+              <button type="button" class="btn btn-green btn-sm" onclick="verifyOtp()">✓ Verify</button>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px;">
+              <span id="otp-msg" style="font-size:11px;"></span>
+              <span>
+                <span class="timer" id="timer-txt"></span>
+                <button type="button" class="resend-btn" id="resend-btn" style="display:none;" onclick="sendOtp()">Resend OTP</button>
+              </span>
+            </div>
+          </div>
+
+          <!-- Verified badge -->
+          <div id="verified-section" style="display:none;margin-bottom:14px;">
+            <span class="verified-badge">✅ Mobile Number Verified</span>
+          </div>
+
           <div class="form-group">
             <label class="form-label">PASSWORD</label>
             <div class="input-group">
@@ -81,7 +127,7 @@
                      placeholder="Min. 6 characters" required oninput="checkStrength(this.value)"/>
               <button type="button" class="input-group-btn" onclick="togglePw('pw-signup',this)">👁️</button>
             </div>
-            <div class="pw-strength" id="pw-strength">
+            <div class="pw-strength">
               <span class="pw-chip off" id="chip-len">6+ chars</span>
               <span class="pw-chip off" id="chip-upper">Uppercase</span>
               <span class="pw-chip off" id="chip-num">Number</span>
@@ -96,13 +142,18 @@
             </div>
             <div class="pass-match" id="pass-match"></div>
           </div>
-          <button type="submit" class="btn btn-primary" style="width:100%;padding:13px;font-size:14px;margin-top:6px;">
+
+          <button type="submit" class="btn btn-primary" id="submit-btn"
+                  style="width:100%;padding:13px;font-size:14px;margin-top:6px;" disabled>
             ✨ Create My Account
           </button>
+          <div style="font-size:10px;color:#334155;text-align:center;margin-top:8px;">
+            🔒 Mobile verification required to create account
+          </div>
         </form>
         <div class="auth-switch">Already have an account? <a href="/login">Sign In →</a></div>
       </div>
-    </div><!-- /auth-card -->
+    </div>
 
     <div class="auth-features">
       <span class="auth-feature-pill">✏ Manual Entry</span>
@@ -114,23 +165,126 @@
 </div>
 
 <script>
+// ── Toggle password visibility ──
 function togglePw(id, btn) {
   const inp = document.getElementById(id);
-  if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
-  else { inp.type = 'password'; btn.textContent = '👁️'; }
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁️' : '🙈';
 }
+
+// ── Password strength ──
 function checkStrength(val) {
-  document.getElementById('chip-len').className  = 'pw-chip ' + (val.length >= 6 ? 'on' : 'off');
-  document.getElementById('chip-upper').className= 'pw-chip ' + (/[A-Z]/.test(val) ? 'on' : 'off');
-  document.getElementById('chip-num').className  = 'pw-chip ' + (/\d/.test(val) ? 'on' : 'off');
+  document.getElementById('chip-len').className   = 'pw-chip ' + (val.length >= 6   ? 'on' : 'off');
+  document.getElementById('chip-upper').className = 'pw-chip ' + (/[A-Z]/.test(val) ? 'on' : 'off');
+  document.getElementById('chip-num').className   = 'pw-chip ' + (/\d/.test(val)    ? 'on' : 'off');
 }
+
+// ── Confirm password match ──
 function checkMatch() {
-  const p = document.getElementById('pw-signup').value;
-  const c = document.getElementById('pw-confirm').value;
+  const p  = document.getElementById('pw-signup').value;
+  const c  = document.getElementById('pw-confirm').value;
   const el = document.getElementById('pass-match');
   if (!c) { el.textContent = ''; return; }
   el.textContent = p === c ? '✓ Passwords match' : '✗ Passwords don\'t match';
   el.style.color = p === c ? '#4ade80' : '#f87171';
+}
+
+// ── Reset OTP when phone changes ──
+function resetOtp() {
+  document.getElementById('otp-section').style.display     = 'none';
+  document.getElementById('otp-demo-box').style.display    = 'none';
+  document.getElementById('verified-section').style.display= 'none';
+  document.getElementById('submit-btn').disabled           = true;
+  document.getElementById('send-otp-btn').disabled         = false;
+  document.getElementById('send-otp-btn').textContent      = '📱 Send OTP';
+}
+
+// ── Send OTP ──
+let timerInterval;
+function sendOtp() {
+  const phone = document.getElementById('phone-input').value;
+  if (!/^[0-9]{10}$/.test(phone)) {
+    alert('Please enter a valid 10-digit mobile number first!');
+    return;
+  }
+  const btn = document.getElementById('send-otp-btn');
+  btn.disabled    = true;
+  btn.textContent = '⏳ Sending…';
+
+  fetch('/send-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'phone=' + encodeURIComponent(phone)
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.status === 'success') {
+      // Show demo OTP box
+      document.getElementById('otp-demo-box').style.display = 'block';
+      document.getElementById('otp-demo-code').textContent  = data.otp;
+      document.getElementById('otp-section').style.display  = 'block';
+      document.getElementById('otp-msg').textContent        = '';
+      document.getElementById('otp-input').value            = '';
+      btn.textContent = '✓ OTP Sent';
+      startTimer(30);
+    } else {
+      alert(data.message);
+      btn.disabled    = false;
+      btn.textContent = '📱 Send OTP';
+    }
+  })
+  .catch(() => {
+    btn.disabled    = false;
+    btn.textContent = '📱 Send OTP';
+    alert('Failed to send OTP. Please try again.');
+  });
+}
+
+// ── Verify OTP ──
+function verifyOtp() {
+  const otp = document.getElementById('otp-input').value.trim();
+  if (otp.length !== 6) {
+    document.getElementById('otp-msg').textContent  = '⚠ Enter 6-digit OTP';
+    document.getElementById('otp-msg').style.color  = '#f87171';
+    return;
+  }
+  fetch('/verify-otp', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'otp=' + encodeURIComponent(otp)
+  })
+  .then(r => r.json())
+  .then(data => {
+    if (data.status === 'success') {
+      document.getElementById('otp-section').style.display     = 'none';
+      document.getElementById('otp-demo-box').style.display    = 'none';
+      document.getElementById('verified-section').style.display= 'block';
+      document.getElementById('submit-btn').disabled           = false;
+      clearInterval(timerInterval);
+    } else {
+      document.getElementById('otp-msg').textContent = '✗ ' + data.message;
+      document.getElementById('otp-msg').style.color = '#f87171';
+      document.getElementById('otp-input').style.borderColor = '#f87171';
+    }
+  });
+}
+
+// ── Countdown timer ──
+function startTimer(seconds) {
+  clearInterval(timerInterval);
+  const timerEl  = document.getElementById('timer-txt');
+  const resendEl = document.getElementById('resend-btn');
+  resendEl.style.display = 'none';
+  let remaining = seconds;
+  timerEl.textContent = 'Resend in ' + remaining + 's';
+  timerInterval = setInterval(() => {
+    remaining--;
+    timerEl.textContent = remaining > 0 ? 'Resend in ' + remaining + 's' : '';
+    if (remaining <= 0) {
+      clearInterval(timerInterval);
+      resendEl.style.display = 'inline';
+    }
+  }, 1000);
 }
 </script>
 </body>

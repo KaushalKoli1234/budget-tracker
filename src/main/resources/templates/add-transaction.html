@@ -17,7 +17,7 @@
     <a class="nav-link" href="/dashboard/history">📋 <span>History</span></a>
     <a class="nav-link" href="/dashboard/reports">📊 <span>Reports</span></a>
     <div class="nav-user">
-      <div class="avatar" th:text="${userName?.substring(0,1)?.toUpperCase()}">U</div>
+      <div class="avatar" th:text="${userName != null} ? ${userName.substring(0,1).toUpperCase()} : 'U'">U</div>
       <a href="/logout" class="btn btn-danger btn-sm">Logout</a>
     </div>
   </div>

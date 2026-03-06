@@ -17,7 +17,7 @@
     <a class="nav-link active" href="/dashboard/history">📋 <span>History</span></a>
     <a class="nav-link" href="/dashboard/reports">📊 <span>Reports</span></a>
     <div class="nav-user">
-      <div class="avatar" th:text="${userName?.substring(0,1)?.toUpperCase()}">U</div>
+      <div class="avatar" th:text="${userName != null} ? ${userName.substring(0,1).toUpperCase()} : 'U'">U</div>
       <a href="/logout" class="btn btn-danger btn-sm">Logout</a>
     </div>
   </div>
@@ -27,101 +27,75 @@
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px;">
     <div>
       <h1 class="page-title">📋 Transaction History</h1>
-      <p class="page-sub">ALL YOUR TRANSACTIONS — MANUAL · BANK · RECURRING</p>
+      <p class="page-sub">ALL YOUR TRANSACTIONS</p>
     </div>
     <a href="/dashboard/add" class="btn btn-primary">+ Add Transaction</a>
   </div>
 
-  <!-- Alerts -->
   <div th:if="${success}" class="alert alert-success" th:text="${success}"></div>
 
-  <!-- Summary row -->
   <div class="stat-row" style="margin-bottom:20px;">
     <div class="stat-card">
       <div class="stat-label">INCOME</div>
-      <div class="stat-value" style="color:#4ade80;">₹<span th:text="${#numbers.formatDecimal(totalIncome,1,'COMMA',2,'POINT')}">0</span></div>
+      <div class="stat-value" style="color:#4ade80;" th:text="${fmtIncome}">₹0</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">EXPENSES</div>
-      <div class="stat-value" style="color:#f87171;">₹<span th:text="${#numbers.formatDecimal(totalExpense,1,'COMMA',2,'POINT')}">0</span></div>
+      <div class="stat-value" style="color:#f87171;" th:text="${fmtExpense}">₹0</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">BALANCE</div>
-      <div class="stat-value" th:style="${balance>=0}?'color:#4ade80':'color:#f87171'">
-        <span th:text="${balance>=0}?'+':'-'"></span>₹<span th:text="${balance >= 0 ? #numbers.formatDecimal(balance,1,'COMMA',2,'POINT') : #numbers.formatDecimal(-balance,1,'COMMA',2,'POINT')}">0</span>
-      </div>
+      <div class="stat-value" th:style="${balancePos} ? 'color:#4ade80' : 'color:#f87171'"
+           th:text="${fmtBalance}">₹0</div>
     </div>
     <div class="stat-card">
-      <div class="stat-label">TOTAL TRANSACTIONS</div>
-      <div class="stat-value" style="color:#38bdf8;" th:text="${transactions.size()}">0</div>
+      <div class="stat-label">TOTAL</div>
+      <div class="stat-value" style="color:#38bdf8;" th:text="${totalCount}">0</div>
     </div>
   </div>
 
-  <!-- Search bar -->
   <form method="get" action="/dashboard/history" style="margin-bottom:18px;display:flex;gap:10px;">
-    <input class="form-control" type="text" name="filter" placeholder="🔍 Search by description or category…"
+    <input class="form-control" type="text" name="filter"
+           placeholder="🔍 Search description or category…"
            th:value="${filter}" style="max-width:400px;"/>
     <button type="submit" class="btn btn-primary">Search</button>
-    <a th:if="${filter}" href="/dashboard/history" class="btn btn-ghost">✕ Clear</a>
+    <a th:if="${filter != null}" href="/dashboard/history" class="btn btn-ghost">✕ Clear</a>
   </form>
 
-  <!-- Table -->
   <div class="card" style="padding:0;overflow:hidden;">
     <div class="table-wrap">
       <table>
         <thead>
           <tr>
-            <th>#</th>
-            <th>DATE</th>
-            <th>DESCRIPTION</th>
-            <th>CATEGORY</th>
-            <th>AMOUNT</th>
-            <th>TYPE</th>
-            <th>SOURCE</th>
-            <th>BANK</th>
-            <th>ACTION</th>
+            <th>#</th><th>DATE</th><th>DESCRIPTION</th><th>CATEGORY</th>
+            <th>AMOUNT</th><th>TYPE</th><th>SOURCE</th><th>ACTION</th>
           </tr>
         </thead>
         <tbody>
-          <tr th:if="${transactions.isEmpty()}">
-            <td colspan="9" style="text-align:center;padding:48px;">
+          <tr th:if="${rows.isEmpty()}">
+            <td colspan="8" style="text-align:center;padding:48px;">
               <div style="font-size:36px;margin-bottom:10px;">📋</div>
               <div style="color:#475569;font-size:13px;">No transactions found.</div>
-              <a href="/dashboard/add" class="btn btn-primary btn-sm" style="margin-top:12px;">+ Add First Transaction</a>
+              <a href="/dashboard/add" class="btn btn-primary btn-sm" style="margin-top:12px;">+ Add First</a>
             </td>
           </tr>
-          <tr th:each="tx : ${transactions}" class="anim-slide">
-            <td style="color:#475569;font-size:11px;">#<span th:text="${tx.id}"></span></td>
-            <td style="color:#64748b;font-size:12px;" th:text="${tx.fmtDate}"></td>
-            <td style="font-weight:500;" th:text="${tx.description}"></td>
+          <tr th:each="row : ${rows}">
+            <td style="color:#475569;font-size:11px;" th:text="'#' + ${row.id}"></td>
+            <td style="color:#64748b;font-size:12px;" th:text="${row.date}"></td>
+            <td style="font-weight:500;" th:text="${row.desc}"></td>
+            <td><span style="background:#111827;color:#fbbf24;font-size:10px;padding:2px 8px;border-radius:6px;" th:text="${row.cat}"></span></td>
+            <td><span th:class="${row.amtClass}" th:text="${row.amount}"></span></td>
+            <td><span th:class="${row.typeClass}" th:text="${row.type}"></span></td>
             <td>
-              <span style="background:#111827;color:#fbbf24;font-size:10px;padding:2px 8px;border-radius:6px;"
-                    th:text="${tx.category}"></span>
-            </td>
-            <td>
-              <span th:class="${tx.income}?'amount-inc':'amount-exp'">
-                <span th:text="${tx.income}?'+':'-'"></span>₹<span th:text="${#numbers.formatDecimal(tx.amount,1,'COMMA',2,'POINT')}"></span>
-              </span>
-            </td>
-            <td>
-              <span class="badge" th:class="${tx.income}?'badge badge-income':'badge badge-expense'"
-                    th:text="${tx.type}"></span>
-            </td>
-            <td>
-              <span th:if="${tx.mode.name()=='MANUAL'}"    class="badge badge-manual">✏ Manual</span>
-              <span th:if="${tx.mode.name()=='AUTO'}"      class="badge badge-auto">🤖 Auto</span>
-              <span th:if="${tx.mode.name()=='BANK'}"      class="badge badge-bank">🏦 Bank</span>
-              <span th:if="${tx.mode.name()=='RECURRING'}" class="badge badge-recurring">🔁 Recurring</span>
-            </td>
-            <td style="color:#38bdf8;font-size:11px;">
-              <span th:if="${tx.bankId != null}" th:each="b : ${banks}" th:if="${b.id == tx.bankId}"
-                    th:text="${b.mask}">****</span>
-              <span th:if="${tx.bankId == null}" style="color:#1e2a3a;">—</span>
+              <span th:if="${row.mode == 'MANUAL'}"    class="badge badge-manual">✏ Manual</span>
+              <span th:if="${row.mode == 'AUTO'}"      class="badge badge-auto">🤖 Auto</span>
+              <span th:if="${row.mode == 'BANK'}"      class="badge badge-bank">🏦 Bank</span>
+              <span th:if="${row.mode == 'RECURRING'}" class="badge badge-recurring">🔁 Recurring</span>
             </td>
             <td>
               <form method="post" action="/dashboard/history/delete"
                     onsubmit="return confirm('Delete this transaction?')">
-                <input type="hidden" name="txId" th:value="${tx.id}"/>
+                <input type="hidden" name="txId" th:value="${row.id}"/>
                 <button type="submit" class="btn btn-danger btn-sm">🗑</button>
               </form>
             </td>
@@ -129,15 +103,6 @@
         </tbody>
       </table>
     </div>
-  </div>
-
-  <!-- Badge legend -->
-  <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap;align-items:center;">
-    <span style="font-size:10px;color:#475569;">SOURCE:</span>
-    <span class="badge badge-manual">✏ Manual</span>
-    <span class="badge badge-auto">🤖 Auto</span>
-    <span class="badge badge-bank">🏦 Bank</span>
-    <span class="badge badge-recurring">🔁 Recurring</span>
   </div>
 </div>
 </body>

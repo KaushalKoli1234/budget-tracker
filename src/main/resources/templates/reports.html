@@ -17,7 +17,7 @@
     <a class="nav-link" href="/dashboard/history">📋 <span>History</span></a>
     <a class="nav-link active" href="/dashboard/reports">📊 <span>Reports</span></a>
     <div class="nav-user">
-      <div class="avatar" th:text="${userName?.substring(0,1)?.toUpperCase()}">U</div>
+      <div class="avatar" th:text="${userName != null} ? ${userName.substring(0,1).toUpperCase()} : 'U'">U</div>
       <a href="/logout" class="btn btn-danger btn-sm">Logout</a>
     </div>
   </div>
@@ -26,34 +26,29 @@
 <div class="page anim-fade">
   <div style="margin-bottom:24px;">
     <h1 class="page-title">📊 Financial Reports</h1>
-    <p class="page-sub">CATEGORY BREAKDOWN · INCOME vs EXPENSES · ENTRY SOURCES</p>
+    <p class="page-sub">CATEGORY BREAKDOWN · INCOME vs EXPENSES</p>
   </div>
 
-  <!-- Summary stats -->
   <div class="stat-row" style="margin-bottom:28px;">
     <div class="stat-card">
       <div class="stat-label">TOTAL INCOME</div>
-      <div class="stat-value" style="color:#4ade80;">₹<span th:text="${#numbers.formatDecimal(totalIncome,1,'COMMA',2,'POINT')}"></span></div>
+      <div class="stat-value" style="color:#4ade80;" th:text="${fmtIncome}">₹0</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">TOTAL EXPENSES</div>
-      <div class="stat-value" style="color:#f87171;">₹<span th:text="${#numbers.formatDecimal(totalExpense,1,'COMMA',2,'POINT')}"></span></div>
+      <div class="stat-value" style="color:#f87171;" th:text="${fmtExpense}">₹0</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">NET BALANCE</div>
-      <div class="stat-value" th:style="${balance>=0}?'color:#4ade80':'color:#f87171'">
-        <span th:text="${balance>=0}?'+':'-'"></span>₹<span th:text="${balance >= 0 ? #numbers.formatDecimal(balance,1,'COMMA',2,'POINT') : #numbers.formatDecimal(-balance,1,'COMMA',2,'POINT')}"></span>
-      </div>
+      <div class="stat-value" th:style="${balancePos} ? 'color:#4ade80' : 'color:#f87171'"
+           th:text="${fmtBalance}">₹0</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">SAVINGS RATE</div>
-      <div class="stat-value" style="color:#38bdf8;">
-        <span th:text="${totalIncome > 0} ? ${#numbers.formatDecimal((balance/totalIncome)*100,1,'COMMA',1,'POINT')} + '%' : 'N/A'"></span>
-      </div>
+      <div class="stat-value" style="color:#38bdf8;" th:text="${savingsRate}">0%</div>
     </div>
   </div>
 
-  <!-- Source breakdown -->
   <div class="card" style="margin-bottom:20px;">
     <div class="section-title">TRANSACTION SOURCE BREAKDOWN</div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:14px;">
@@ -81,43 +76,30 @@
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-
-    <!-- Expense by category -->
     <div class="card">
       <div class="section-title">EXPENSES BY CATEGORY</div>
-      <div th:if="${catExpenses.isEmpty()}" style="text-align:center;padding:24px;color:#334155;font-size:12px;">
-        No expenses recorded yet.
-      </div>
-      <div th:each="entry : ${catExpenses}">
+      <div th:if="${expRows.isEmpty()}" style="text-align:center;padding:24px;color:#334155;font-size:12px;">No expenses recorded yet.</div>
+      <div th:each="row : ${expRows}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <span style="font-size:12px;color:#e2e8f0;" th:text="${entry.key}"></span>
-          <span style="font-size:12px;color:#f87171;font-weight:600;">
-            ₹<span th:text="${#numbers.formatDecimal(entry.value,1,'COMMA',2,'POINT')}"></span>
-          </span>
+          <span style="font-size:12px;" th:text="${row.cat}"></span>
+          <span style="font-size:12px;color:#f87171;font-weight:600;" th:text="${row.amt} + '  (' + ${row.pct} + ')'"></span>
         </div>
         <div class="progress" style="margin-bottom:12px;">
-          <div class="progress-bar" style="background:#f87171;"
-               th:style="'width:' + (${totalExpense > 0} ? ${#numbers.formatDecimal((entry.value/totalExpense)*100,1,'COMMA',1,'POINT')} : 0) + '%'"></div>
+          <div class="progress-bar" style="background:#f87171;" th:style="'width:' + ${row.width} + '%'"></div>
         </div>
       </div>
     </div>
 
-    <!-- Income by category -->
     <div class="card">
       <div class="section-title">INCOME BY CATEGORY</div>
-      <div th:if="${catIncome.isEmpty()}" style="text-align:center;padding:24px;color:#334155;font-size:12px;">
-        No income recorded yet.
-      </div>
-      <div th:each="entry : ${catIncome}">
+      <div th:if="${incRows.isEmpty()}" style="text-align:center;padding:24px;color:#334155;font-size:12px;">No income recorded yet.</div>
+      <div th:each="row : ${incRows}">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-          <span style="font-size:12px;color:#e2e8f0;" th:text="${entry.key}"></span>
-          <span style="font-size:12px;color:#4ade80;font-weight:600;">
-            ₹<span th:text="${#numbers.formatDecimal(entry.value,1,'COMMA',2,'POINT')}"></span>
-          </span>
+          <span style="font-size:12px;" th:text="${row.cat}"></span>
+          <span style="font-size:12px;color:#4ade80;font-weight:600;" th:text="${row.amt} + '  (' + ${row.pct} + ')'"></span>
         </div>
         <div class="progress" style="margin-bottom:12px;">
-          <div class="progress-bar" style="background:#4ade80;"
-               th:style="'width:' + (${totalIncome > 0} ? ${#numbers.formatDecimal((entry.value/totalIncome)*100,1,'COMMA',1,'POINT')} : 0) + '%'"></div>
+          <div class="progress-bar" style="background:#4ade80;" th:style="'width:' + ${row.width} + '%'"></div>
         </div>
       </div>
     </div>

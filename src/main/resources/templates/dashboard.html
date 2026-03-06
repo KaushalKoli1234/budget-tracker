@@ -7,8 +7,6 @@
   <link rel="stylesheet" th:href="@{/css/style.css}"/>
 </head>
 <body>
-
-<!-- Navbar -->
 <nav class="navbar">
   <a class="navbar-brand" href="/dashboard">💰 Budget<span>Tracker</span></a>
   <div class="navbar-nav">
@@ -19,7 +17,7 @@
     <a class="nav-link" href="/dashboard/history">📋 <span>History</span></a>
     <a class="nav-link" href="/dashboard/reports">📊 <span>Reports</span></a>
     <div class="nav-user">
-      <div class="avatar" th:text="${userName?.substring(0,1)?.toUpperCase()}">U</div>
+      <div class="avatar" th:text="${userName != null} ? ${userName.substring(0,1).toUpperCase()} : 'U'">U</div>
       <span style="font-size:12px;color:#94a3b8;" th:text="${userName}">User</span>
       <a href="/logout" class="btn btn-danger btn-sm">Logout</a>
     </div>
@@ -27,37 +25,28 @@
 </nav>
 
 <div class="page anim-fade">
-
-  <!-- Auto-post alert -->
   <div th:if="${autoPosted > 0}" class="alert alert-info" style="margin-bottom:20px;">
     🔁 <strong th:text="${autoPosted}"></strong> recurring transaction(s) auto-posted on login.
   </div>
 
-  <!-- Title -->
   <div style="margin-bottom:24px;">
     <h1 class="page-title">Welcome back, <span style="color:#38bdf8;" th:text="${userName}">User</span> 👋</h1>
     <p class="page-sub">HERE'S YOUR FINANCIAL OVERVIEW</p>
   </div>
 
-  <!-- Stat cards -->
   <div class="stat-row">
     <div class="stat-card">
       <div class="stat-label">TOTAL INCOME</div>
-      <div class="stat-value" style="color:#4ade80;">
-        ₹<span th:text="${#numbers.formatDecimal(totalIncome,1,'COMMA',2,'POINT')}">0.00</span>
-      </div>
+      <div class="stat-value" style="color:#4ade80;" th:text="${fmtIncome}">₹0.00</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">TOTAL EXPENSES</div>
-      <div class="stat-value" style="color:#f87171;">
-        ₹<span th:text="${#numbers.formatDecimal(totalExpense,1,'COMMA',2,'POINT')}">0.00</span>
-      </div>
+      <div class="stat-value" style="color:#f87171;" th:text="${fmtExpense}">₹0.00</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">NET BALANCE</div>
-      <div class="stat-value" th:style="${balance >= 0} ? 'color:#4ade80' : 'color:#f87171'">
-        <span th:text="${balance >= 0} ? '+' : '-'"></span>₹<span th:text="${balance >= 0 ? #numbers.formatDecimal(balance,1,'COMMA',2,'POINT') : #numbers.formatDecimal(-balance,1,'COMMA',2,'POINT')}">0.00</span>
-      </div>
+      <div class="stat-value" th:style="${balancePos} ? 'color:#4ade80' : 'color:#f87171'"
+           th:text="${fmtBalance}">₹0.00</div>
     </div>
     <div class="stat-card">
       <div class="stat-label">TRANSACTIONS</div>
@@ -67,24 +56,63 @@
     <div class="stat-card" th:if="${dueCount > 0}" style="border-color:#a78bfa;">
       <div class="stat-label">⚡ RECURRING DUE</div>
       <div class="stat-value" style="color:#a78bfa;" th:text="${dueCount}">0</div>
-      <div class="stat-sub">
-        <a href="/dashboard/recurring" style="color:#a78bfa;">Post them now →</a>
+      <div class="stat-sub"><a href="/dashboard/recurring" style="color:#a78bfa;">Post them now →</a></div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:28px;flex-wrap:wrap;">
+    <a href="/dashboard/add?type=INCOME"  class="btn btn-green">+ Add Income</a>
+    <a href="/dashboard/add?type=EXPENSE" class="btn btn-danger">- Add Expense</a>
+    <a href="/dashboard/banks"    class="btn btn-ghost">🏦 Bank Accounts</a>
+    <a href="/dashboard/recurring" class="btn btn-purple">🔁 Recurring</a>
+    <a href="/dashboard/reports"  class="btn btn-ghost">📊 Reports</a>
+    <button class="btn btn-ghost" onclick="shareApp()" style="border-color:#38bdf8;color:#38bdf8;">🔗 Share App</button>
+  </div>
+
+  <!-- Share Modal -->
+  <div id="share-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;align-items:center;justify-content:center;">
+    <div style="background:#0d1424;border:1px solid #1e2a3a;border-radius:20px;padding:28px;width:100%;max-width:420px;margin:20px;animation:fadeUp .3s ease;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+        <h3 style="font-size:18px;font-weight:700;">🔗 Share BudgetTracker</h3>
+        <button onclick="closeShare()" style="background:none;border:none;color:#475569;font-size:20px;cursor:pointer;">✕</button>
+      </div>
+
+      <!-- App URL box -->
+      <div style="background:#060a14;border:1px solid #1e2a3a;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <span style="font-size:18px;">🌐</span>
+        <span id="share-url" style="font-size:12px;color:#38bdf8;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+        <button onclick="copyUrl()" class="btn btn-primary btn-sm" id="copy-btn">📋 Copy</button>
+      </div>
+
+      <!-- Share options -->
+      <div style="font-size:10px;color:#475569;letter-spacing:1.5px;margin-bottom:10px;">SHARE VIA</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;">
+        <button onclick="shareVia('whatsapp')" class="btn btn-ghost" style="border-color:#25D366;color:#25D366;">
+          💬 WhatsApp
+        </button>
+        <button onclick="shareVia('telegram')" class="btn btn-ghost" style="border-color:#229ED9;color:#229ED9;">
+          ✈️ Telegram
+        </button>
+        <button onclick="shareVia('twitter')" class="btn btn-ghost" style="border-color:#1DA1F2;color:#1DA1F2;">
+          🐦 Twitter / X
+        </button>
+        <button onclick="shareVia('email')" class="btn btn-ghost" style="border-color:#fbbf24;color:#fbbf24;">
+          📧 Email
+        </button>
+      </div>
+
+      <!-- Native share (mobile) -->
+      <button onclick="nativeShare()" class="btn btn-primary" style="width:100%;padding:12px;" id="native-share-btn">
+        📤 Share via Phone / Other Apps
+      </button>
+
+      <div style="text-align:center;margin-top:12px;font-size:11px;color:#334155;">
+        🔒 Free personal finance app · 100% Java · No ads
       </div>
     </div>
   </div>
 
-  <!-- Quick actions -->
-  <div style="display:flex;gap:10px;margin-bottom:28px;flex-wrap:wrap;">
-    <a href="/dashboard/add?type=INCOME"  class="btn btn-green">+ Add Income</a>
-    <a href="/dashboard/add?type=EXPENSE" class="btn btn-danger">- Add Expense</a>
-    <a href="/dashboard/banks"   class="btn btn-ghost">🏦 Bank Accounts</a>
-    <a href="/dashboard/recurring" class="btn btn-purple">🔁 Recurring</a>
-    <a href="/dashboard/reports" class="btn btn-ghost">📊 Reports</a>
-  </div>
-
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-
-    <!-- Recent transactions -->
     <div class="card">
       <div class="section-title">RECENT TRANSACTIONS</div>
       <div th:if="${recentTx.isEmpty()}" class="empty-state" style="padding:30px 20px;">
@@ -92,24 +120,18 @@
         <p style="color:#475569;font-size:12px;">No transactions yet.</p>
         <a href="/dashboard/add" class="btn btn-primary btn-sm" style="margin-top:10px;">+ Add First Transaction</a>
       </div>
-      <div th:if="${!recentTx.isEmpty()}">
-        <div th:each="tx : ${recentTx}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #0f172a;">
-          <div style="width:36px;height:36px;border-radius:8px;background:#0a0f1e;border:1px solid #1e2a3a;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">
-            💰
-          </div>
-          <div style="flex:1;min-width:0;">
-            <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" th:text="${tx.description}"></div>
-            <div style="font-size:10px;color:#334155;margin-top:2px;" th:text="${tx.category} + ' · ' + ${tx.fmtDate}"></div>
-          </div>
-          <div th:class="${tx.income} ? 'amount-inc' : 'amount-exp'" style="font-size:13px;flex-shrink:0;">
-            <span th:text="${tx.income} ? '+' : '-'"></span>₹<span th:text="${#numbers.formatDecimal(tx.amount,1,'COMMA',2,'POINT')}"></span>
-          </div>
+      <div th:each="tx : ${recentTx}" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid #0f172a;">
+        <div style="width:36px;height:36px;border-radius:8px;background:#0a0f1e;border:1px solid #1e2a3a;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;">💰</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" th:text="${tx.description}"></div>
+          <div style="font-size:10px;color:#334155;margin-top:2px;" th:text="${tx.category} + ' · ' + ${tx.fmtDate}"></div>
         </div>
-        <a href="/dashboard/history" class="btn btn-ghost btn-sm" style="margin-top:14px;width:100%;justify-content:center;">View All Transactions →</a>
+        <div th:class="${tx.income} ? 'amount-inc' : 'amount-exp'" style="font-size:13px;flex-shrink:0;"
+             th:text="${tx.income} ? '+₹' + ${tx.amountFormatted} : '-₹' + ${tx.amountFormatted}"></div>
       </div>
+      <a th:if="${!recentTx.isEmpty()}" href="/dashboard/history" class="btn btn-ghost btn-sm" style="margin-top:14px;width:100%;justify-content:center;">View All →</a>
     </div>
 
-    <!-- Linked banks -->
     <div class="card">
       <div class="section-title">LINKED BANK ACCOUNTS</div>
       <div th:if="${banks.isEmpty()}" class="empty-state" style="padding:30px 20px;">
@@ -117,23 +139,63 @@
         <p style="color:#475569;font-size:12px;">No bank accounts added yet.</p>
         <a href="/dashboard/banks" class="btn btn-primary btn-sm" style="margin-top:10px;">+ Add Bank Account</a>
       </div>
-      <div th:if="${!banks.isEmpty()}">
-        <div th:each="b : ${banks}" style="display:flex;align-items:center;gap:12px;padding:12px;background:#0a0f1e;border-radius:10px;margin-bottom:8px;">
-          <div style="font-size:24px;">🏦</div>
-          <div style="flex:1;">
-            <div style="font-size:13px;font-weight:600;" th:text="${b.bankName}"></div>
-            <div style="font-size:10px;color:#475569;margin-top:2px;" th:text="${b.accountType} + ' · ' + ${b.mask}"></div>
-          </div>
-          <div style="text-align:right;">
-            <div style="font-size:14px;font-weight:700;" th:class="${b.balance >= 0} ? 'amount-inc' : 'amount-exp'">
-              ₹<span th:text="${b.balanceFormatted}"></span>
-            </div>
-          </div>
+      <div th:each="b : ${banks}" style="display:flex;align-items:center;gap:12px;padding:12px;background:#0a0f1e;border-radius:10px;margin-bottom:8px;">
+        <div style="font-size:24px;">🏦</div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:600;" th:text="${b.bankName}"></div>
+          <div style="font-size:10px;color:#475569;margin-top:2px;" th:text="${b.accountType} + ' · ' + ${b.mask}"></div>
         </div>
-        <a href="/dashboard/banks" class="btn btn-ghost btn-sm" style="margin-top:6px;width:100%;justify-content:center;">Manage Banks →</a>
+        <div style="font-size:14px;font-weight:700;color:#4ade80;" th:text="'₹' + ${b.balanceFormatted}"></div>
       </div>
+      <a th:if="${!banks.isEmpty()}" href="/dashboard/banks" class="btn btn-ghost btn-sm" style="margin-top:6px;width:100%;justify-content:center;">Manage Banks →</a>
     </div>
   </div>
 </div>
+<script>
+function shareApp() {
+  const url = window.location.origin;
+  document.getElementById('share-url').textContent = url;
+  document.getElementById('share-modal').style.display = 'flex';
+}
+function closeShare() {
+  document.getElementById('share-modal').style.display = 'none';
+}
+function copyUrl() {
+  const url = window.location.origin;
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✅ Copied!';
+    btn.style.background = '#052e16';
+    setTimeout(() => { btn.textContent = '📋 Copy'; btn.style.background = ''; }, 2000);
+  });
+}
+function shareVia(platform) {
+  const url  = encodeURIComponent(window.location.origin);
+  const text = encodeURIComponent('💰 Check out BudgetTracker — Free personal finance manager built in 100% Java! Track income, expenses, bank accounts & more.');
+  const links = {
+    whatsapp: 'https://wa.me/?text=' + text + '%0A' + url,
+    telegram: 'https://t.me/share/url?url=' + url + '&text=' + text,
+    twitter:  'https://twitter.com/intent/tweet?text=' + text + '&url=' + url,
+    email:    'mailto:?subject=Check%20out%20BudgetTracker&body=' + text + '%0A%0A' + url
+  };
+  window.open(links[platform], '_blank');
+}
+function nativeShare() {
+  if (navigator.share) {
+    navigator.share({
+      title: '💰 BudgetTracker',
+      text:  'Free personal finance manager — track income, expenses & more!',
+      url:   window.location.origin
+    }).catch(() => {});
+  } else {
+    copyUrl();
+    alert('Link copied! Paste it anywhere to share.');
+  }
+}
+// Close modal on backdrop click
+document.getElementById('share-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeShare();
+});
+</script>
 </body>
 </html>
